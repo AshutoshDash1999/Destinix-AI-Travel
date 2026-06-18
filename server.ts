@@ -7,15 +7,37 @@ import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
+import { createServer } from "http";
+import { Server as SocketServer } from "socket.io";
+import collaborationRoutes from "./server/collaboration/routes/groupRoutes";
+import { initSocket } from "./server/collaboration/socket/socketHandler";
 
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
 
+const httpServer = createServer(app);
+const io = new SocketServer(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"]
+  }
+});
+
+initSocket(io);
+
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+app.use((req: any, res, next) => {
+  req.io = io;
+  next();
+});
+
+app.use("/api", collaborationRoutes);
+
 
 // Razorpay instance
 const razorpay = new Razorpay({
@@ -392,7 +414,7 @@ async function setupVite() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
